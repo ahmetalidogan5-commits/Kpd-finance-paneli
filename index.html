@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPD - Kişisel Finans Paneli</title>
+    <!-- İnternette sorunsuz çalışması için güvenli HTTPS CDN bağlantıları -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --sidebar-bg: #111827;
+            --sidebar-text: #f9fafb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: var(--primary-dark); }
+        .btn-small { padding: 6px 12px; font-size: 14px; }
+        .btn-full { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; margin-top:10px; }
+
+        /* Sidebar Tasarımı */
+        #sidebar {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            height: 100vh;
+            position: fixed;
+            left: -280px;
+            top: 0;
+            transition: left 0.3s ease;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        #sidebar.active { left: 0; }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-header h2 { font-size: 22px; color: var(--primary); }
+        #close-sidebar {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .user-profile {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .user-profile .avatar {
+            width: 60px; height: 60px;
+            background: var(--primary);
+            border-radius: 50%;
+            margin: 0 auto 10px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .menu { list-style: none; padding: 20px 0; }
+        .menu li a {
+            display: block;
+            padding: 15px 20px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        .menu li a i { margin-right: 10px; width: 20px; text-align: center; }
+        .menu li a:hover { background: rgba(255,255,255,0.1); border-left: 4px solid var(--primary); }
+
+        /* Ana İçerik Alanı */
+        #main-content {
+            flex: 1;
+            min-height: 100vh;
+            transition: margin-left 0.3s;
+            width: 100%;
+        }
+        header {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #menu-btn {
+            background: none; border: none;
+            font-size: 24px; color: var(--text-main);
+            cursor: pointer; margin-right: 20px;
+        }
+        header h1 { font-size: 20px; font-weight: 600; }
+
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+        .modern-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .balance-card { text-align: center; padding: 30px 20px; }
+        .balance-card h3 { color: var(--text-muted); font-weight: 500; margin-bottom: 10px; }
+        .balance-card h2 { font-size: 40px; color: var(--primary-dark); margin-bottom: 20px; }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .summary-cards h4 { color: var(--text-muted); margin-bottom: 10px; }
+        .summary-cards .amount { font-size: 24px; font-weight: 600; }
+        .highlight { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; }
+        .highlight h4 { color: rgba(255,255,255,0.8); }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; color: var(--text-muted); font-weight: 600; }
+        tr:hover { background: #f3f4f6; }
+        .text-success { color: var(--success); font-weight: bold; }
+        .text-danger { color: var(--danger); font-weight: bold; }
+
+        .live-rates { display: flex; flex-wrap: wrap; gap: 10px; }
+        .rate-badge {
+            background: #e0f2fe; color: #0284c7;
+            padding: 8px 15px; border-radius: 20px; font-weight: 600; font-size: 14px;
+        }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        .page { display: none; animation: fadeIn 0.4s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Modallar */
+        .modal {
+            display: none;
+            position: fixed; z-index: 2000; left: 0; top: 0;
+            width: 100%; height: 100%; overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: auto; padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 450px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .close {
+            position: absolute; right: 20px; top: 20px;
+            font-size: 24px; font-weight: bold; color: #aaa; cursor: pointer;
+        }
+        .close:hover { color: #333; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; color: var(--text-main); }
+        .form-group input, .form-group select {
+            width: 100%; padding: 12px;
+            border: 1px solid #d1d5db; border-radius: 8px;
+            font-size: 16px; outline: none; transition: border 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+
+        #overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999;
+        }
+
+        @media (min-width: 768px) {
+            #sidebar { left: 0; }
+            #main-content { margin-left: 280px; width: calc(100% - 280px); }
+            #menu-btn { display: none; }
+            #close-sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Menü -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h2>KPD Sistem</h2>
+            <button id="close-sidebar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="user-profile">
+            <div class="avatar">AAD</div>
+            <p>Ahmet Alihan Doğan</p>
+        </div>
+        <ul class="menu">
+            <li><a href="#" onclick="showPage('dashboard')"><i class="fas fa-home"></i> Ana Panel</a></li>
+            <li><a href="#" onclick="openModal('transaction-modal')"><i class="fas fa-plus-circle"></i> Gelir / Gider Ekle</a></li>
+            <li><a href="#" onclick="showPage('cash-page')"><i class="fas fa-money-bill-wave"></i> Nakit İşlemleri</a></li>
+            <li><a href="#" onclick="showPage('card-page')"><i class="fas class fa-credit-card"></i> Kart İşlemleri</a></li>
+            <li><a href="#" onclick="showPage('all-transactions-page')"><i class="fas fa-list"></i> Tüm İşlemler</a></li>
+            <li><a href="#" onclick="showPage('currency-page')"><i class="fas fa-coins"></i> Döviz & Altın</a></li>
+            <li><a href="#" onclick="showPage('analysis-page')"><i class="fas fa-chart-pie"></i> Genel Analiz</a></li>
+        </ul>
+    </nav>
+
+    <!-- Ana İçerik -->
+    <main id="main-content">
+        <header>
+            <button id="menu-btn"><i class="fas fa-bars"></i></button>
+            <h1 id="page-title">Ana Panel</h1>
+        </header>
+
+        <div class="container">
+            <!-- Dashboard -->
+            <section id="dashboard" class="page active">
+                <div class="balance-card modern-card">
+                    <h3>Güncel Bakiye</h3>
+                    <h2 id="total-balance">0 TL</h2>
+                    <button class="btn btn-small" onclick="openModal('balance-modal')"><i class="fas fa-edit"></i> Bakiyeyi Düzenle</button>
+                </div>
+                <div class="summary-cards">
+                    <div class="modern-card">
+                        <h4>Toplam Nakit</h4>
+                        <p id="summary-cash" class="amount">0 TL</p>
+                    </div>
+                    <div class="modern-card">
+                        <h4>Toplam Kart</h4>
+                        <p id="summary-card" class="amount">0 TL</p>
+                    </div>
+                    <div class="modern-card highlight">
+                        <h4>Döviz/Altın Varlığı (TL Karşılığı)</h4>
+                        <p id="summary-currency" class="amount">0 TL</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nakit İşlemleri -->
+            <section id="cash-page" class="page">
+                <div class="modern-card">
+                    <h3>Nakit İşlem Geçmişi</h3>
+                    <div class="table-responsive">
+                        <table id="cash-table">
+                            <thead><tr><th>Tarih/Saat</th><th>Tür</th><th>Kategori</th><th>Tutar</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kart İşlemleri -->
+            <section id="card-page" class="page">
+                <div class="modern-card">
+                    <h3>Kart İşlem Geçmişi</h3>
+                    <div class="table-responsive">
+                        <table id="card-table">
+                            <thead><tr><th>Tarih/Saat</th><th>Tür</th><th>Kategori</th><th>Tutar</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tüm İşlemler -->
+            <section id="all-transactions-page" class="page">
+                <div class="modern-card">
+                    <h3>Tüm İşlemler Listesi</h3>
+                    <div class="table-responsive">
+                        <table id="all-table">
+                            <thead><tr><th>Tarih/Saat</th><th>Kaynak</th><th>Tür</th><th>Kategori</th><th>Tutar</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Döviz Sayfası -->
+            <section id="currency-page" class="page">
+                <div class="modern-card header-flex">
+                    <h3>Döviz ve Altın Varlıklarım</h3>
+                    <button class="btn" onclick="openModal('currency-modal')"><i class="fas fa-plus"></i> Yeni Döviz/Altın Ekle</button>
+                </div>
+                
+                <div class="live-rates">
+                    <span class="rate-badge">Dolar: <span id="rate-usd">Yükleniyor...</span> ₺</span>
+                    <span class="rate-badge">Euro: <span id="rate-eur">Yükleniyor...</span> ₺</span>
+                    <span class="rate-badge">Altın (Gr): <span id="rate-gold">Yükleniyor...</span> ₺</span>
+                    <small style="display:block; margin-top:5px; color:#888;">*Kurlar otomatik güncellenir.</small>
+                </div>
+
+                <div class="table-responsive" style="margin-top: 20px;">
+                    <table id="currency-table">
+                        <thead><tr><th>Tarih/Saat</th><th>Varlık</th><th>Adet / Miktar</th><th>Alınan Yer</th><th>Güncel TL Değeri</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Analiz Sayfası -->
+            <section id="analysis-page" class="page">
+                <div class="modern-card">
+                    <h3>Aylık Kategori Analizi</h3>
+                    <div class="chart-container">
+                        <canvas id="expenseChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modallar -->
+    <div id="balance-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('balance-modal')">&times;</span>
+            <h2>Bakiyeyi Güncelle</h2>
+            <div class="form-group">
+                <label>Yeni Bakiye Tutarı</label>
+                <input type="text" id="new-balance-input" class="currency-input" placeholder="Örn: 15.000">
+            </div>
+            <button class="btn btn-full" onclick="updateBalance()">Kaydet</button>
+        </div>
+    </div>
+
+    <div id="transaction-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('transaction-modal')">&times;</span>
+            <h2>Yeni İşlem Ekle</h2>
+            
+            <div class="form-group">
+                <label>İşlem Türü</label>
+                <select id="trans-type">
+                    <option value="gelir">Gelir (Kasa/Bakiye Artar)</option>
+                    <option value="gider">Gider (Kasa/Bakiye Azalır)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Ödeme Yöntemi</label>
+                <select id="trans-method">
+                    <option value="nakit">Nakit</option>
+                    <option value="kart">Kart</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Kategori</label>
+                <select id="trans-category">
+                    <option value="Maaş">Maaş</option>
+                    <option value="Fatura">Fatura</option>
+                    <option value="Market">Market</option>
+                    <option value="Kahve/Kafe">Kahve / Kafe</option>
+                    <option value="Ulaşım">Ulaşım</option>
+                    <option value="Giyim">Giyim / Alışveriş</option>
+                    <option value="Diğer">Diğer</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Tutar (TL)</label>
+                <input type="text" id="trans-amount" class="currency-input" placeholder="0">
+            </div>
+
+            <button class="btn btn-full" onclick="saveTransaction()">İşlemi Kaydet</button>
+        </div>
+    </div>
+
+    <div id="currency-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('currency-modal')">&times;</span>
+            <h2>Döviz veya Altın Ekle</h2>
+            
+            <div class="form-group">
+                <label>Varlık Türü</label>
+                <select id="curr-type">
+                    <option value="usd">Dolar (USD)</option>
+                    <option value="eur">Euro (EUR)</option>
+                    <option value="gold">Gram Altın</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Adet / Miktar</label>
+                <input type="text" id="curr-amount" class="currency-input" placeholder="Örn: 100">
+            </div>
+
+            <div class="form-group">
+                <label>Alınan Yer / Platform</label>
+                <input type="text" id="curr-source" placeholder="Örn: X Bankası, Kuyumcu vb.">
+            </div>
+
+            <button class="btn btn-full" onclick="saveCurrency()">Varlığı Kaydet</button>
+        </div>
+    </div>
+
+    <div id="overlay"></div>
+
+    <script>
+        // --- JAVASCRIPT KODLARI ---
+        let appData = JSON.parse(localStorage.getItem('kpdData')) || {
+            balance: 0,
+            transactions: [],
+            currencies: []
+        };
+
+        let liveRates = {
+            usd: 33.50,
+            eur: 36.20,
+            gold: 2450.00
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLiveRates();
+            updateDashboard();
+        });
+
+        function saveData() {
+            localStorage.setItem('kpdData', JSON.stringify(appData));
+            updateDashboard();
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            const titles = {
+                'dashboard': 'Ana Panel',
+                'cash-page': 'Nakit İşlemleri',
+                'card-page': 'Kart İşlemleri',
+                'all-transactions-page': 'Tüm İşlemler',
+                'currency-page': 'Döviz & Altın Yönetimi',
+                'analysis-page': 'Genel Analiz'
+            };
+            document.getElementById('page-title').innerText = titles[pageId] || 'Panel';
+
+            if(window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.remove('active');
+                document.getElementById('overlay').style.display = 'none';
+            }
+
+            if(pageId === 'analysis-page') {
+                renderChart();
+            }
+        }
+
+        document.getElementById('menu-btn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('active');
+            document.getElementById('overlay').style.display = 'block';
+        });
+        document.getElementById('close-sidebar').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('overlay').style.display = 'none';
+        });
+        document.getElementById('overlay').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('overlay').style.display = 'none';
+        });
+
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.querySelectorAll(`#${modalId} input`).forEach(inp => inp.value = '');
+        }
+
+        document.querySelectorAll('.currency-input').forEach(input => {
+            input.addEventListener('input', function(e) {
+                let val = this.value.replace(/[^0-9]/g, '');
+                if(val === '') {
+                    this.value = '';
+                    return;
+                }
+                this.value = parseInt(val, 10).toLocaleString('tr-TR');
+            });
+        });
+
+        function getRawNumber(formattedString) {
+            if(!formattedString) return 0;
+            return parseInt(formattedString.replace(/\./g, ''), 10) || 0;
+        }
+
+        function formatTL(number) {
+            return number.toLocaleString('tr-TR') + ' ₺';
+        }
+
+        function updateBalance() {
+            let input = document.getElementById('new-balance-input').value;
+            let newBal = getRawNumber(input);
+            appData.balance = newBal;
+            saveData();
+            closeModal('balance-modal');
+        }
+
+        function saveTransaction() {
+            let type = document.getElementById('trans-type').value;
+            let method = document.getElementById('trans-method').value;
+            let category = document.getElementById('trans-category').value;
+            let amount = getRawNumber(document.getElementById('trans-amount').value);
+
+            if (amount <= 0) {
+                alert("Lütfen geçerli bir tutar girin.");
+                return;
+            }
+
+            const now = new Date();
+            const newTrans = {
+                id: Date.now(),
+                date: now.toLocaleDateString('tr-TR'),
+                time: now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}),
+                type: type,
+                method: method,
+                category: category,
+                amount: amount
+            };
+
+            appData.transactions.push(newTrans);
+
+            if(type === 'gelir' || category === 'Maaş') {
+                appData.balance += amount;
+            } else if (type === 'gider') {
+                appData.balance -= amount;
+            }
+
+            saveData();
+            closeModal('transaction-modal');
+        }
+
+        function saveCurrency() {
+            let type = document.getElementById('curr-type').value;
+            let amount = getRawNumber(document.getElementById('curr-amount').value);
+            let source = document.getElementById('curr-source').value || 'Belirtilmedi';
+
+            if(amount <= 0) {
+                alert("Geçerli bir adet giriniz.");
+                return;
+            }
+
+            const now = new Date();
+            appData.currencies.push({
+                id: Date.now(),
+                date: now.toLocaleDateString('tr-TR'),
+                time: now.toLocaleTimeString('tr-TR', {hour: '2-digit', minute:'2-digit'}),
+                type: type,
+                amount: amount,
+                source: source
+            });
+
+            saveData();
+            closeModal('currency-modal');
+        }
+
+        async function fetchLiveRates() {
+            try {
+                let res = await fetch('https://api.exchangerate-api.com/v4/latest/TRY');
+                let data = await res.json();
+                liveRates.usd = 1 / data.rates.USD;
+                liveRates.eur = 1 / data.rates.EUR;
+                liveRates.gold = (2400 / 31.1) * liveRates.usd; 
+                
+                document.getElementById('rate-usd').innerText = liveRates.usd.toFixed(2);
+                document.getElementById('rate-eur').innerText = liveRates.eur.toFixed(2);
+                document.getElementById('rate-gold').innerText = liveRates.gold.toFixed(2);
+                updateDashboard();
+            } catch (e) {
+                document.getElementById('rate-usd').innerText = liveRates.usd.toFixed(2);
+                document.getElementById('rate-eur').innerText = liveRates.eur.toFixed(2);
+                document.getElementById('rate-gold').innerText = liveRates.gold.toFixed(2);
+            }
+        }
+
+        function updateDashboard() {
+            document.getElementById('total-balance').innerText = formatTL(appData.balance);
+
+            let cashTotal = 0;
+            let cardTotal = 0;
+            let cashHTML = '';
+            let cardHTML = '';
+            let allHTML = '';
+
+            let sortedTrans = [...appData.transactions].sort((a,b) => b.id - a.id);
+
+            sortedTrans.forEach(t => {
+                let sign = t.type === 'gelir' ? '+' : '-';
+                let tClass = t.type === 'gelir' ? 'text-success' : 'text-danger';
+                
+                let rowHtml = `<tr>
+                    <td>${t.date} <small style="color:#888">${t.time}</small></td>
+                    <td>${t.type.toUpperCase()}</td>
+                    <td>${t.category}</td>
+                    <td class="${tClass}">${sign} ${formatTL(t.amount)}</td>
+                </tr>`;
+                
+                let allRowHtml = `<tr>
+                    <td>${t.date} <small style="color:#888">${t.time}</small></td>
+                    <td>${t.method.toUpperCase()}</td>
+                    <td>${t.type.toUpperCase()}</td>
+                    <td>${t.category}</td>
+                    <td class="${tClass}">${sign} ${formatTL(t.amount)}</td>
+                </tr>`;
+                
+                allHTML += allRowHtml;
+
+                if(t.method === 'nakit') {
+                    cashHTML += rowHtml;
+                    if(t.type === 'gelir') cashTotal += t.amount; else cashTotal -= t.amount;
+                } else {
+                    cardHTML += rowHtml;
+                    if(t.type === 'gelir') cardTotal += t.amount; else cardTotal -= t.amount;
+                }
+            });
+
+            document.getElementById('cash-table').querySelector('tbody').innerHTML = cashHTML || '<tr><td colspan="4">Henüz nakit işlemi yok.</td></tr>';
+            document.getElementById('card-table').querySelector('tbody').innerHTML = cardHTML || '<tr><td colspan="4">Henüz kart işlemi yok.</td></tr>';
+            document.getElementById('all-table').querySelector('tbody').innerHTML = allHTML || '<tr><td colspan="5">Henüz işlem bulunmuyor.</td></tr>';
+
+            document.getElementById('summary-cash').innerText = formatTL(cashTotal);
+            document.getElementById('summary-card').innerText = formatTL(cardTotal);
+
+            let currencyHTML = '';
+            let totalCurrencyTL = 0;
+            let sortedCurr = [...appData.currencies].sort((a,b) => b.id - a.id);
+            
+            sortedCurr.forEach(c => {
+                let typeName = c.type === 'usd' ? 'Dolar' : (c.type === 'eur' ? 'Euro' : 'Gram Altın');
+                let rate = liveRates[c.type];
+                let tlValue = c.amount * rate;
+                totalCurrencyTL += tlValue;
+                
+                currencyHTML += `<tr>
+                    <td>${c.date} <small style="color:#888">${c.time}</small></td>
+                    <td><b>${typeName}</b></td>
+                    <td>${c.amount.toLocaleString('tr-TR')}</td>
+                    <td>${c.source}</td>
+                    <td style="font-weight:bold; color:var(--primary-dark)">${formatTL(Math.round(tlValue))}</td>
+                </tr>`;
+            });
+
+            document.getElementById('currency-table').querySelector('tbody').innerHTML = currencyHTML || '<tr><td colspan="5">Henüz döviz veya altın kaydınız yok.</td></tr>';
+            document.getElementById('summary-currency').innerText = formatTL(Math.round(totalCurrencyTL));
+        }
+
+        let myChart = null;
+        function renderChart() {
+            let ctx = document.getElementById('expenseChart').getContext('2d');
+            let categoryTotals = {};
+            appData.transactions.forEach(t => {
+                if(t.type === 'gider') {
+                    if(!categoryTotals[t.category]) categoryTotals[t.category] = 0;
+                    categoryTotals[t.category] += t.amount;
+                }
+            });
+
+            let labels = Object.keys(categoryTotals);
+            let data = Object.values(categoryTotals);
+
+            if(labels.length === 0) {
+                labels = ['Henüz Gider Yok'];
+                data = [1];
+            }
+
+            if(myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
