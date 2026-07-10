@@ -35,6 +35,8 @@
             display: flex;
             overflow-x: hidden;
             min-height: 100vh;
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            
         }
         <!-- Yükleme Ekranı -->
 <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f172a; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white;">
@@ -1004,6 +1006,24 @@ animation: gradientMove 12s ease infinite;
                 }
             });
         }
+        window.onload = function() {
+    const bar = document.getElementById('progress-bar');
+    const txt = document.getElementById('status-text');
+    let p = 0;
+    const timer = setInterval(function() {
+        p += 20;
+        bar.style.width = p + "%";
+        if(p === 20) txt.innerText = "Kimlik doğrulanıyor...";
+        if(p === 60) txt.innerText = "Güvenlik kontrolleri tamamlandı...";
+        if(p >= 100) {
+            clearInterval(timer);
+            setTimeout(function() {
+                document.getElementById('splash-screen').style.display = 'none';
+            }, 500);
+        }
+    }, 600);
+};
+        
     </script>
 </body>
 </html>
